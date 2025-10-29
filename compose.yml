@@ -1,0 +1,45 @@
+volumes:
+
+  roonwebstack_config:
+  tailscale_varlib:
+
+services:
+
+  roonwebstack:
+    image: nihiluxorg/roon-web-stack
+    network_mode: service:tailscale
+    restart: on-failure
+    environment:
+      - PORT=8282
+      - LOG_LEVEL=debug
+    volumes:
+      - roonwebstack_config:/usr/src/app/config
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    healthcheck:
+      test: curl --fail http://localhost:8282/ || exit 1
+      start_period: 20s
+      interval: 20s
+      timeout: 10s
+      retries: 5
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    hostname: $TAILSCALE_HOSTNAME
+    restart: on-failure
+    environment:
+      - TS_EXTRA_ARGS=--advertise-tags=tag:docker
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_ENABLE_HEALTH_CHECK=true
+      - TS_SERVE_CONFIG=/ts-serve.json
+    volumes:
+      - tailscale_varlib:/var/lib/tailscale
+      - ./ts-serve.json:/ts-serve.json
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    healthcheck:
+      test: wget -q --tries=1 --spider http://127.0.0.1:9002/healthz || exit 1
+      start_period: 20s
+      interval: 20s
+      timeout: 10s
+      retries: 2
